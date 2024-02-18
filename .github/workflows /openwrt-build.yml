@@ -10,6 +10,7 @@ env:
   REPO_URL: https://github.com/openwrt/openwrt.git
   REPO_BRANCH: master
   OpenWRTDevice: Flint2_gl-mt6000
+  CONFIG_FILE: .config
   TZ: Europe/Berlin
 
 
@@ -40,8 +41,6 @@ jobs:
         fi
 
         git clone --depth 1 --branch $REPO_BRANCH $REPO_URL
-        cd openwrt
-        cp $GITHUB_WORKSPACE/.config .config
 
 
     - name: Install Dependencies
@@ -67,17 +66,25 @@ jobs:
           file \
           wget
           
+    - name: Display contents of .config start
+      run:  |
+        cat $GITHUB_WORKSPACE/$CONFIG_FILE
+          
     - name: Update & install feeds
       run: |
         cd openwrt
         ./scripts/feeds update -a
         ./scripts/feeds install -a
-
-#    - name: make menuconfig
-#      run: |
-#        cd openwrt
-#        make menuconfig
-
+    
+    - name: Load .config
+      run: |
+        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+    
+    - name: Display contents of .config
+      run:  |
+        cd openwrt
+        cat .config
+      
     - name: make defconfig
       run: |
         cd openwrt
@@ -105,13 +112,6 @@ jobs:
         cd openwrt
         make -j $(($(nproc)+1)) V=s || \
         make V=s
-
- #   - name: Build OpenWrt
- #     run: |
- #       cd openwrt
- #       make defconfig
- #       #make -j$(nproc)
- #       make -j $(($(nproc)+1))
 
     - name: Organize files
       id: organize
@@ -148,7 +148,6 @@ jobs:
         prerelease: false
         title: "${{ env.RelTag }}"
         automatic_release_tag: "${{ env.RelTag }}"
-        #files: ${{ env.FIRMWARE }}/*
         files: |
           ${{ env.FIRMWARE }}/*squashfs*.bin
           ${{ env.FIRMWARE }}/*.buildinfo
