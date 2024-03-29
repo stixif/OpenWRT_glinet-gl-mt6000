@@ -74,7 +74,7 @@ jobs:
         id: delete_old_tags
         run: |
           while read -r tag_name; do
-            git push --delete origin "$tag_name"
-            git tag --delete "$tag_name"
-            echo "Tag $tag_name gelöscht"
+          git push --delete origin "$tag_name"
+          git tag --delete "$tag_name"
+          echo "Tag $tag_name gelöscht"
           done < tags_to_keep.txt
