@@ -8,7 +8,7 @@ on:
     - cron: '0 0 * * 0'
 
 jobs:
-  delete_old_releases:
+  maintenance:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -39,3 +39,29 @@ jobs:
             git tag --delete $tag
             echo "Tag $tag gelöscht"
           done < latest_tags.txt
+      
+      - name: Delete Old Actions
+        id: delete_old_actions
+        run: |
+          # Passe diesen Pfad an, um den Pfad deiner alten Aktionen anzugeben
+          old_actions_path=".github/actions/old_actions"
+          # Lösche den alten Aktionen-Ordner
+          if [ -d "$old_actions_path" ]; then
+            rm -rf "$old_actions_path"
+            echo "Alte Aktionen gelöscht"
+          else
+            echo "Keine alten Aktionen gefunden"
+          fi
+
+      - name: Delete Old Files
+        id: delete_old_files
+        run: |
+          # Passe diesen Pfad an, um den Pfad deiner alten Dateien anzugeben
+          old_files_path="old_files"
+          # Lösche alte Dateien
+          if [ -d "$old_files_path" ]; then
+            rm -rf "$old_files_path"
+            echo "Alte Dateien gelöscht"
+          else
+            echo "Keine alten Dateien gefunden"
+          fi
