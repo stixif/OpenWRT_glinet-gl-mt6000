@@ -1,6 +1,8 @@
 name: Delete Old Releases
 
 on:
+  repository_dispatch:
+  workflow_dispatch:
   schedule:
     # Führe den Workflow einmal Wöchentlich aus
     - cron: '0 0 * * 0'
