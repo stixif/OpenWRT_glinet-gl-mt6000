@@ -41,7 +41,7 @@ jobs:
             echo "Release $release_id gelöscht"
           done < releases_to_delete.txt
       
-     - name: Get All Workflows
+      - name: Get All Workflows
         id: all_workflows
         run: |
           ls -t .github/workflows | tail -n +6 > old_workflows.txt
