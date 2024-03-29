@@ -1,10 +1,10 @@
-name: Delete Old Releases
+name: Delete Old Items
 
 on:
   repository_dispatch:
   workflow_dispatch:
   schedule:
-    # Führe den Workflow einmal Wöchentlich aus
+    # Führe den Workflow einmal wöchentlich aus
     - cron: '0 0 * * 0'
 
 jobs:
@@ -40,29 +40,57 @@ jobs:
               -X DELETE "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
             echo "Release $release_id gelöscht"
           done < releases_to_delete.txt
-      
-      - name: Get All Workflows
-        id: all_workflows
-        run: |
-          ls -t .github/workflows | tail -n +6 > old_workflows.txt
 
-      - name: Delete Old Workflows
-        id: delete_old_workflows
+      - name: Get All Workflow Runs
+        id: all_workflow_runs
         run: |
-          while read -r workflow; do
-            rm .github/workflows/"$workflow"
-            echo "Workflow $workflow gelöscht"
-          done < old_workflows.txt
+          all_runs=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -X GET "https://api.github.com/repos/${{ github.repository }}/actions/runs" \
+              | jq -r '.workflow_runs | .[] | .id')
+          # Sortiere die Run-IDs in umgekehrter Reihenfolge
+          sorted_runs=($(printf '%s\n' "${all_runs[@]}" | sort -nr))
 
-      - name: Get All Files
-        id: all_files
-        run: |
-          find . -type f | tail -n +6 > old_files.txt
+          # Entferne die letzten fünf Run-IDs aus dem Array
+          num_to_keep=5
+          for ((i=0; i<${num_to_keep}; i++)); do
+              unset 'sorted_runs[${i}]'
+          done
 
-      - name: Delete Old Files
-        id: delete_old_files
+          # Speichere die zu löschenden Run-IDs in eine Datei
+          printf '%s\n' "${sorted_runs[@]}" > runs_to_delete.txt
+
+      - name: Delete Old Workflow Runs
+        id: delete_old_runs
         run: |
-          while read -r file; do
-            rm "$file"
-            echo "Datei $file gelöscht"
-          done < old_files.txt
+          while read -r run_id; do
+            curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -X DELETE "https://api.github.com/repos/${{ github.repository }}/actions/runs/$run_id"
+            echo "Workflow Run $run_id gelöscht"
+          done < runs_to_delete.txt
+
+      - name: Get All Tags
+        id: all_tags
+        run: |
+          all_tags=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -X GET "https://api.github.com/repos/${{ github.repository }}/tags" \
+              | jq -r '.[] | .name')
+          # Sortiere die Tags in umgekehrter Reihenfolge
+          sorted_tags=($(printf '%s\n' "${all_tags[@]}" | sort -nr))
+
+          # Entferne die letzten fünf Tags aus dem Array
+          num_to_keep=5
+          for ((i=0; i<${num_to_keep}; i++)); do
+              unset 'sorted_tags[${i}]'
+          done
+
+          # Speichere die zu löschenden Tags in eine Datei
+          printf '%s\n' "${sorted_tags[@]}" > tags_to_delete.txt
+
+      - name: Delete Old Tags
+        id: delete_old_tags
+        run: |
+          while read -r tag_name; do
+            git push --delete origin "$tag_name"
+            git tag --delete "$tag_name"
+            echo "Tag $tag_name gelöscht"
+          done < tags_to_delete.txt
