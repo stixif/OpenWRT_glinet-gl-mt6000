@@ -14,27 +14,21 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Get All Releases
-        id: all_releases
-        run: |
-          all_releases=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -X GET "https://api.github.com/repos/${{ github.repository }}/releases" \
-              | jq -r '[ .[] | {id: .id, created_at: .created_at} ] | sort_by(.created_at) | .[-5:]')
-          # Speichere die letzten fünf Release-IDs in eine Datei
-          printf '%s\n' "${all_releases[@]}" | jq -r '.[] | .id' > releases_to_keep.txt
-
       - name: Delete Old Releases
-        id: delete_old_releases
-        run: |
-          all_releases=$(cat releases_to_keep.txt)
-          for release_id in $all_releases; do
-            echo "Behalte Release: $release_id"
-          done
+        uses: dev-drprasad/delete-older-releases@v0.3.3
+        with:
+          #repo: <owner>/<repoName> # defaults to current repo
+          keep_latest: 3
+          keep_min_download_counts: 1 # Optional parameters
+          delete_expired_data: 10 # Optional parameters
+          delete_tag_pattern: beta # defaults to ""
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
           token: ${{ github.token }}
           repository: ${{ github.repository }}
-          retain_days: 30
+          retain_days: 15
           keep_minimum_runs: 5
