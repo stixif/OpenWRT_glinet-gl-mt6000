@@ -44,5 +44,5 @@ jobs:
 
       # passe den status an
       - name: Set Workflow Status to Error
-        if: steps.delete_workflows.outcome == 'success'
+        #if: steps.delete_workflows.outcome == 'success'
         run: exit 1
