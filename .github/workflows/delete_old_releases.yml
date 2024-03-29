@@ -14,31 +14,32 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Get Latest 5 Tags
-        id: latest_tags
+      - name: Get All Releases
+        id: all_releases
         run: |
-          git fetch --tags
-          git tag --sort=-creatordate | head -n 5 > latest_tags.txt
+          all_releases=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -X GET "https://api.github.com/repos/${{ github.repository }}/releases" \
+              | jq -r '.[] | .id')
+          # Sortiere die Release-IDs in umgekehrter Reihenfolge
+          sorted_releases=($(printf '%s\n' "${all_releases[@]}" | sort -nr))
 
-      - name: Delete Old Releases and Tags
-        id: delete_releases_tags
+          # Entferne die letzten fünf Release-IDs aus dem Array
+          num_to_keep=5
+          for ((i=0; i<${num_to_keep}; i++)); do
+              unset 'sorted_releases[${i}]'
+          done
+
+          # Speichere die zu löschenden Release-IDs in eine Datei
+          printf '%s\n' "${sorted_releases[@]}" > releases_to_delete.txt
+
+      - name: Delete Old Releases
+        id: delete_old_releases
         run: |
-          while read -r tag; do
-            # Lösche Release
-            release_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -X GET "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag" \
-              | jq -r '.id')
-            if [ ! -z "$release_id" ] && [ "$release_id" != "null" ]; then
-              curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                -X DELETE "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
-              echo "Release $tag gelöscht"
-            fi
-            
-            # Lösche Tag
-            git push --delete origin $tag
-            git tag --delete $tag
-            echo "Tag $tag gelöscht"
-          done < latest_tags.txt
+          while read -r release_id; do
+            curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -X DELETE "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+            echo "Release $release_id gelöscht"
+          done < releases_to_delete.txt
       
       - name: Delete Old Actions
         id: delete_old_actions
