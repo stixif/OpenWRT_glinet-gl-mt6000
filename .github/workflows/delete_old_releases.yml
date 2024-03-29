@@ -43,25 +43,13 @@ jobs:
       - name: Delete Old Actions
         id: delete_old_actions
         run: |
-          # Passe diesen Pfad an, um den Pfad deiner alten Aktionen anzugeben
-          old_actions_path=".github/actions/old_actions"
-          # Lösche den alten Aktionen-Ordner
-          if [ -d "$old_actions_path" ]; then
-            rm -rf "$old_actions_path"
-            echo "Alte Aktionen gelöscht"
-          else
-            echo "Keine alten Aktionen gefunden"
-          fi
+          # Lösche alte Aktionen
+          find .github/actions -type d -mtime +30 -exec rm -rf {} \;
+          echo "Alte Aktionen gelöscht"
 
       - name: Delete Old Files
         id: delete_old_files
         run: |
-          # Passe diesen Pfad an, um den Pfad deiner alten Dateien anzugeben
-          old_files_path="old_files"
           # Lösche alte Dateien
-          if [ -d "$old_files_path" ]; then
-            rm -rf "$old_files_path"
-            echo "Alte Dateien gelöscht"
-          else
-            echo "Keine alten Dateien gefunden"
-          fi
+          find . -type f -mtime +30 -exec rm -f {} \;
+          echo "Alte Dateien gelöscht"
