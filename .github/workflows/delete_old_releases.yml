@@ -43,23 +43,6 @@ jobs:
           keep_minimum_runs: 1
 
       # passe den status an
-      - name: Set Workflow Status to Cancelled
+      - name: Set Workflow Status to Error
         if: steps.delete_workflows.outcome == 'success'
-        run: echo "::set-output name=cancel_workflow::true"
-
-      - name: Cancel Workflow
-        if: steps.delete_workflows.outcome == 'success'
-        uses: actions/github-script@v4
-        with:
-          script: |
-            console.log("Cancelling the workflow...");
-            const github = require('@actions/github');
-            const octokit = github.getOctokit(process.env.GITHUB_TOKEN);
-            const context = github.context;
-            await octokit.actions.cancelWorkflowRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: context.runId
-            });
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: exit 1
