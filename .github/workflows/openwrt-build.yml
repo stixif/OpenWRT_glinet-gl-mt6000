@@ -1,4 +1,4 @@
-name: OpenWrt Release Master
+name: OpenWrt Release STABLE openwrt-23.05
 
 on:
   repository_dispatch:
@@ -8,7 +8,7 @@ on:
 
 env:
   REPO_URL: https://github.com/openwrt/openwrt.git
-  REPO_BRANCH: master
+  REPO_BRANCH: openwrt-23.05
   OpenWRTDevice: Flint2_gl-mt6000
   CONFIG_FILE: .config
   TZ: Europe/Berlin
