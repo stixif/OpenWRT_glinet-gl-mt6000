@@ -1,0 +1,39 @@
+name: Delete Old Releases
+
+on:
+  schedule:
+    # Führe den Workflow einmal Wöchentlich aus
+    - cron: '0 0 * * 0'
+
+jobs:
+  delete_old_releases:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Get Latest 5 Tags
+        id: latest_tags
+        run: |
+          git fetch --tags
+          git tag --sort=-creatordate | head -n 5 > latest_tags.txt
+
+      - name: Delete Old Releases and Tags
+        id: delete_releases_tags
+        run: |
+          while read -r tag; do
+            # Lösche Release
+            release_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -X GET "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag" \
+              | jq -r '.id')
+            if [ ! -z "$release_id" ] && [ "$release_id" != "null" ]; then
+              curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -X DELETE "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+              echo "Release $tag gelöscht"
+            fi
+            
+            # Lösche Tag
+            git push --delete origin $tag
+            git tag --delete $tag
+            echo "Tag $tag gelöscht"
+          done < latest_tags.txt
