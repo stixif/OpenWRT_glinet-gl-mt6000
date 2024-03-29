@@ -41,11 +41,10 @@ jobs:
             echo "Release $release_id gelöscht"
           done < releases_to_delete.txt
       
-      - name: Get All Workflows
+     - name: Get All Workflows
         id: all_workflows
         run: |
-          all_workflows=$(ls -t .github/workflows | tail -n +6)
-          printf '%s\n' "${all_workflows[@]}" > old_workflows.txt
+          ls -t .github/workflows | tail -n +6 > old_workflows.txt
 
       - name: Delete Old Workflows
         id: delete_old_workflows
@@ -58,8 +57,7 @@ jobs:
       - name: Get All Files
         id: all_files
         run: |
-          all_files=$(find . -type f | tail -n +6)
-          printf '%s\n' "${all_files[@]}" > old_files.txt
+          find . -type f | tail -n +6 > old_files.txt
 
       - name: Delete Old Files
         id: delete_old_files
