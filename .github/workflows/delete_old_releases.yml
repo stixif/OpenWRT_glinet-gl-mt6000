@@ -43,9 +43,9 @@ jobs:
       - name: Delete Old Actions
         id: delete_old_actions
         run: |
-          # Lösche alte Aktionen
-          find .github/actions -type d -mtime +30 -exec rm -rf {} \;
-          echo "Alte Aktionen gelöscht"
+          # Lösche alte Actions
+          find .github/workflows -type f -mtime +30 -exec rm -f {} \;
+          echo "Alte Actions gelöscht"
 
       - name: Delete Old Files
         id: delete_old_files
