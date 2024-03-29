@@ -42,6 +42,11 @@ jobs:
           retain_days: 1
           keep_minimum_runs: 1
 
+      - name: Delete unused Tags
+        uses: fabriziocacicia/delete-tags-without-release-action@v0.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
       # passe den status an
       - name: Set Workflow Status to Error
         #if: steps.delete_workflows.outcome == 'success'
