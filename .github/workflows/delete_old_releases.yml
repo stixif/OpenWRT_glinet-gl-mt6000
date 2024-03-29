@@ -37,7 +37,7 @@ jobs:
         uses: Mattraks/delete-workflow-runs@v2
         with:
           token: ${{ github.token }}
-          workflow-name: 'Delete Old Items'
+          delete_run_by_conclusion_pattern: cancelled, failure, skipped
           repository: ${{ github.repository }}
           retain_days: 1
           keep_minimum_runs: 1
