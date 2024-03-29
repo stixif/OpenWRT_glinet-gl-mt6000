@@ -32,3 +32,12 @@ jobs:
           repository: ${{ github.repository }}
           retain_days: 15
           keep_minimum_runs: 5
+          
+      - name: Delete (Del) workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          workflow-name: 'Delete Old Items'
+          repository: ${{ github.repository }}
+          retain_days: 1
+          keep_minimum_runs: 1
