@@ -133,7 +133,7 @@ jobs:
       id: BuildRelTag
       run: | 
         #echo "RelTag=$OpenWRTDevice-(${{ env.BUILDINFO }})-(${{ env.NOW }})" >> $GITHUB_ENV
-        echo "RelTag=${{ env.NOW }}_${{ env.OpenWRTDevice }}_@(${{ env.BUILDINFO }})" >> $GITHUB_ENV
+        echo "RelTag=${{ env.NOW }}_Pre_${{ env.OpenWRTDevice }}_@(${{ env.BUILDINFO }})" >> $GITHUB_ENV
 
     - name: Upload firmware to github
       uses: actions/upload-artifact@main
