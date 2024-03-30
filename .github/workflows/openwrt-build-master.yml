@@ -147,7 +147,7 @@ jobs:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         prerelease: True
         title: "${{ env.RelTag }}"
-        automatic_release_tag: "${{ env.RelTag }}"
+        automatic_release_tag: "${{ env.BUILDINFO }}"
         files: |
           ${{ env.FIRMWARE }}/*squashfs*.bin
           ${{ env.FIRMWARE }}/*.buildinfo
