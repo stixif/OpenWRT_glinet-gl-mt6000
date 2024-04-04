@@ -149,7 +149,7 @@ jobs:
         title: "${{ env.RelTag }}"
         automatic_release_tag: "${{ env.BUILDINFO }}"
         files: |
-          ${{ env.FIRMWARE }}/*squashfs*.bin
+          ${{ env.FIRMWARE }}/*sysupgrade.bin
           ${{ env.FIRMWARE }}/*.buildinfo
           ${{ env.FIRMWARE }}/*.manifest
           ${{ env.FIRMWARE }}/sha256sums
