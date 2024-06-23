@@ -64,7 +64,9 @@ jobs:
           unzip \
           zlib1g-dev \
           file \
-          wget
+          wget \
+          libpcre3 \
+          libpcre3-dev
           
     - name: Display contents of .config start
       run:  |
