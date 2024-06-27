@@ -15,39 +15,35 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Delete Old Releases
-        uses: dev-drprasad/delete-older-releases@v0.3.3
+        uses: dev-drprasad/delete-older-releases@v0.3.4 # Prüfe, ob es eine neuere Version gibt
         with:
-          #repo: <owner>/<repoName> # defaults to current repo
-          keep_latest: 3
-          #keep_min_download_counts: 1 # Optional parameters
-          delete_expired_data: 10 # Optional parameters
-          #delete_tag_pattern: beta # defaults to ""
+          keep_latest: 8
+          delete_expired_data: 30
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Delete workflow runs
-        uses: Mattraks/delete-workflow-runs@v2
+      - name: Delete workflow runs older than 15 days
+        uses: Mattraks/delete-workflow-runs@v2 # Prüfe, ob es eine neuere Version gibt
         with:
-          token: ${{ github.token }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
-          retain_days: 15
+          retain_days: 30
           keep_minimum_runs: 5
           
-      - name: Delete (Del) workflow runs
-        uses: Mattraks/delete-workflow-runs@v2
+      - name: Delete cancelled, failed, or skipped workflow runs older than 1 day
+        uses: Mattraks/delete-workflow-runs@v2 # Prüfe, ob es eine neuere Version gibt
         with:
-          token: ${{ github.token }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           delete_run_by_conclusion_pattern: cancelled, failure, skipped
           repository: ${{ github.repository }}
           retain_days: 1
-          keep_minimum_runs: 1
+          keep_minimum_runs: 0
 
       - name: Delete unused Tags
-        uses: fabriziocacicia/delete-tags-without-release-action@v0.1.0
+        uses: fabriziocacicia/delete-tags-without-release-action@v0.1.0 # Prüfe, ob es eine neuere Version gibt
         env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # passe den status an
+      # passe den Status an
       - name: Set Workflow Status to Error
-        #if: steps.delete_workflows.outcome == 'success'
         run: exit 1
