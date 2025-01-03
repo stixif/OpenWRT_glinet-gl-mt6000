@@ -1,4 +1,4 @@
-name: OpenWrt Release STABLE openwrt-23.05
+name: OpenWrt Release STABLE openwrt-24.10
 
 on:
   repository_dispatch:
