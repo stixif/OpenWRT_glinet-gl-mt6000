@@ -60,6 +60,7 @@ jobs:
           libncurses-dev \
           libssl-dev \
           python3-distutils \
+          python3.10-distutils \
           rsync \
           unzip \
           zlib1g-dev \
