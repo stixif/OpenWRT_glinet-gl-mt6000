@@ -1,5 +1,8 @@
 name: OpenWrt Release Master
 
+permissions:
+  contents: write
+  
 on:
   repository_dispatch:
   workflow_dispatch:
@@ -16,8 +19,8 @@ env:
 
 jobs:
   build:
-    # runs-on: ubuntu-latest
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+    
     steps:
     - name: Checkout Repository
       uses: actions/checkout@main
@@ -59,7 +62,7 @@ jobs:
           git \
           libncurses-dev \
           libssl-dev \
-          python3-distutils \
+          python3-venv \
           rsync \
           unzip \
           zlib1g-dev \
