@@ -40,7 +40,7 @@ jobs:
           keep_minimum_runs: 0
 
       - name: Delete unused Tags
-        uses: fabriziocacicia/delete-tags-without-release-action@v0.1.0 # Prüfe, ob es eine neuere Version gibt
+        uses: fabriziocacicia/delete-tags-without-release-action@main # Prüfe, ob es eine neuere Version gibt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
