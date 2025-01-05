@@ -16,8 +16,8 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    # runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - name: Checkout Repository
       uses: actions/checkout@main
@@ -60,7 +60,6 @@ jobs:
           libncurses-dev \
           libssl-dev \
           python3-distutils \
-          python3.10-distutils \
           rsync \
           unzip \
           zlib1g-dev \
