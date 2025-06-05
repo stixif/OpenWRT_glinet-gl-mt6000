@@ -1,0 +1,156 @@
+name: OpenWrt Release STABLE WAN openwrt-24.10
+
+permissions:
+  contents: write
+  
+on:
+  repository_dispatch:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * 0'
+
+env:
+  REPO_URL: https://github.com/openwrt/openwrt.git
+  REPO_BRANCH: openwrt-24.10
+  OpenWRTDevice: Flint2_gl-mt6000
+  CONFIG_FILE: .config_WAN
+  TZ: Europe/Berlin
+
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@main
+
+    - name: Check last commit date
+      id: check_commit_date
+      run: |
+        LAST_COMMIT_DATE=$(git ls-remote --heads $REPO_URL $REPO_BRANCH | cut -f 1)
+        echo "Last commit date: $LAST_COMMIT_DATE"
+        #echo "::set-output name=last_commit_date::$LAST_COMMIT_DATE"
+
+    - name: Set up OpenWrt Environment
+      run: |
+        # Check if the last commit date is within the last 24 hours
+        LAST_COMMIT_TIMESTAMP=$(date -d "${{ steps.check_commit_date.outputs.last_commit_date }}" +"%s")
+        CURRENT_TIMESTAMP=$(date +"%s")
+        ELAPSED_TIME=$(($CURRENT_TIMESTAMP - $LAST_COMMIT_TIMESTAMP))
+        if [ $ELAPSED_TIME -gt 86400 ]; then
+          echo "No update in the last 24 hours. Skipping the workflow."
+          exit 0
+        fi
+
+        git clone --depth 1 --branch $REPO_BRANCH $REPO_URL
+
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          clang \
+          flex \
+          bison \
+          g++ \
+          gawk \
+          gettext \
+          git \
+          libncurses-dev \
+          libssl-dev \
+          python3-venv \
+          rsync \
+          unzip \
+          zlib1g-dev \
+          file \
+          wget
+          
+    - name: Display contents of .config start
+      run:  |
+        cat $GITHUB_WORKSPACE/$CONFIG_FILE
+          
+    - name: Update & install feeds
+      run: |
+        cd openwrt
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+    
+    - name: Load .config
+      run: |
+        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+    
+    - name: Display contents of .config
+      run:  |
+        cd openwrt
+        cat .config
+      
+    - name: make defconfig
+      run: |
+        cd openwrt
+        make defconfig
+        
+    - name: Download package sources
+      run: |
+        cd openwrt
+        make download V=s
+
+    - name: Build tools
+      run: |
+        cd openwrt
+        make tools/install -j$(($(nproc)+1)) V=s || \
+        make tools/install V=s
+
+    - name: Build toolchain
+      run: |
+        cd openwrt
+        make toolchain/install -j$(($(nproc)+1)) V=s || \
+        make toolchain/install V=s
+
+    - name: Build target images
+      run: |
+        cd openwrt
+        make -j $(($(nproc)+1)) V=s || \
+        make V=s
+
+    - name: Organize files
+      id: organize
+      run: | 
+        cd openwrt/bin/targets/*/*
+        rm -rf packages
+        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+        echo "NOW=$(date +%F-%H%M)" >> $GITHUB_ENV
+        cp $PWD/version.buildinfo $GITHUB_WORKSPACE/version.buildinfo
+        #echo "BUILDINFO=${GITHUB_WORKSPACE}/version.buildinfo" >> $GITHUB_ENV 
+        #echo "RelTag=$OpenWRTDevice-(${{ env.BUILDINFO }})-(${{ env.NOW }})" >> $GITHUB_ENV
+     
+    - name: Extract version information from version.buildinfo
+      run: >-
+        echo "BUILDINFO=$(cat $PWD/version.buildinfo)"
+        >> $GITHUB_ENV
+        
+    - name: build RelTag
+      id: BuildRelTag
+      run: | 
+        #echo "RelTag=$OpenWRTDevice-(${{ env.BUILDINFO }})-(${{ env.NOW }})" >> $GITHUB_ENV
+        echo "RelTag=${{ env.NOW }}_${{ env.OpenWRTDevice }}_@(${{ env.BUILDINFO }})" >> $GITHUB_ENV
+
+    - name: Upload firmware to github
+      uses: actions/upload-artifact@main
+      with:
+        name: OpenWrt_firmware-${{ env.OpenWRTDevice }}-${{ env.NOW }}
+        path: ${{ env.FIRMWARE }}
+
+    - name: Create a release
+      uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        prerelease: false
+        title: "${{ env.RelTag }}"
+        automatic_release_tag: "${{ env.BUILDINFO }}"
+        files: |
+          ${{ env.FIRMWARE }}/*sysupgrade.bin
+          ${{ env.FIRMWARE }}/*.buildinfo
+          ${{ env.FIRMWARE }}/*.manifest
+          ${{ env.FIRMWARE }}/sha256sums
