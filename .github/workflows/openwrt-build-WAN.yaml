@@ -118,12 +118,25 @@ jobs:
       id: organize
       run: | 
         cd openwrt/bin/targets/*/*
+        
+        # Entferne unerwünschte Unterverzeichnisse
         rm -rf packages
+        
+        # Setze Pfadvariablen für spätere Schritte
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "NOW=$(date +%F-%H%M)" >> $GITHUB_ENV
-        cp $PWD/version.buildinfo $GITHUB_WORKSPACE/version.buildinfo
-        #echo "BUILDINFO=${GITHUB_WORKSPACE}/version.buildinfo" >> $GITHUB_ENV 
-        #echo "RelTag=$OpenWRTDevice-(${{ env.BUILDINFO }})-(${{ env.NOW }})" >> $GITHUB_ENV
+    
+        # Kopiere Buildinfo zur Arbeitsfläche
+        cp version.buildinfo $GITHUB_WORKSPACE/version.buildinfo
+    
+        # Automatisches Umbenennen aller relevanten Dateien
+        for file in *; do
+          if [[ "$file" == openwrt-mediatek-* ]]; then
+            new_name="${file/openwrt-mediatek-/openwrt-mediatek-WAN-}"
+            echo "Renaming $file to $new_name"
+            mv "$file" "$new_name"
+          fi
+        done
      
     - name: Extract version information from version.buildinfo
       run: >-
