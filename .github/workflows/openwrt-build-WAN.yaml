@@ -139,9 +139,9 @@ jobs:
         done
      
     - name: Extract version information from version.buildinfo
-      run: >-
-        echo "BUILDINFO=$(cat $PWD/version.buildinfo)"
-        >> $GITHUB_ENV
+      run: |
+        RAW_BUILDINFO=$(cat $PWD/version.buildinfo)
+        echo "BUILDINFO=${RAW_BUILDINFO}-WAN" >> $GITHUB_ENV
         
     - name: build RelTag
       id: BuildRelTag
