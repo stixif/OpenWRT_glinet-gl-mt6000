@@ -4,7 +4,7 @@ on:
   repository_dispatch:
   workflow_dispatch:
   schedule:
-    # Führe den Workflow einmal wöchentlich aus
+    # Wöchentlich am Sonntag um 00:00 UTC
     - cron: '0 0 * * 0'
 
 jobs:
@@ -14,36 +14,41 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
+      # 🔥 Releases löschen – alle außer die 6 neuesten, älter als 15 Tage
       - name: Delete Old Releases
-        uses: dev-drprasad/delete-older-releases@v0.3.4 # Prüfe, ob es eine neuere Version gibt
+        uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
           keep_latest: 8
-          delete_expired_data: 30
+          delete_expired_data: 20
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Delete workflow runs older than 15 days
-        uses: Mattraks/delete-workflow-runs@v2 # Prüfe, ob es eine neuere Version gibt
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: ${{ github.repository }}
-          retain_days: 30
-          keep_minimum_runs: 5
-          
-      - name: Delete cancelled, failed, or skipped workflow runs older than 1 day
-        uses: Mattraks/delete-workflow-runs@v2 # Prüfe, ob es eine neuere Version gibt
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          delete_run_by_conclusion_pattern: cancelled, failure, skipped
-          repository: ${{ github.repository }}
-          retain_days: 1
-          keep_minimum_runs: 0
 
+      # 🧹 Alle Workflow-Runs löschen, älter als 15 Tage – unabhängig vom Status
+      - name: Delete all workflow runs older than 15 days
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          retain_days: 20
+          keep_minimum_runs: 0  # optional: ganz hartes Aufräumen
+
+      # 🧹 OPTIONAL: Nur fehlgeschlagene oder abgebrochene Runs nach 1 Tag entfernen
+      # Kann bleiben oder entfernt werden – hat wenig Mehrwert, wenn obiger Schritt alles macht
+      # - name: Delete cancelled, failed, or skipped workflow runs older than 1 day
+      #   uses: Mattraks/delete-workflow-runs@v2
+      #   with:
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     delete_run_by_conclusion_pattern: cancelled, failure, skipped
+      #     repository: ${{ github.repository }}
+      #     retain_days: 1
+      #     keep_minimum_runs: 0
+
+      # 🏷️ Tags ohne zugehörige Releases löschen
       - name: Delete unused Tags
-        uses: fabriziocacicia/delete-tags-without-release-action@main # Prüfe, ob es eine neuere Version gibt
+        uses: fabriziocacicia/delete-tags-without-release-action@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # passe den Status an
+      # 💥 Erzwinge Fehler am Ende (wie von dir gewünscht)
       - name: Set Workflow Status to Error
         run: exit 1
