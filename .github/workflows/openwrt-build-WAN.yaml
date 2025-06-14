@@ -81,7 +81,8 @@ jobs:
       run: |
         cd openwrt
         cat .config
-
+        make defconfig
+        
     - name: Update & install feeds
       run: |
         cd openwrt
