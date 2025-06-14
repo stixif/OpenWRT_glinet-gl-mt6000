@@ -73,6 +73,12 @@ jobs:
       run: |
         cat $GITHUB_WORKSPACE/$CONFIG_FILE
 
+    - name: Update & install feeds
+      run: |
+        cd openwrt
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
     - name: Load .config
       run: |
         [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
@@ -81,7 +87,7 @@ jobs:
       run: |
         cd openwrt
         cat .config
-        make defconfig
+        # make defconfig
         
     - name: Update & install feeds
       run: |
