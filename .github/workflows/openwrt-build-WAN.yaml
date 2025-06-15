@@ -22,7 +22,7 @@ jobs:
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@main
+      uses: actions/checkout@v4
 
     - name: Check last commit date
       id: check_commit_date
@@ -43,10 +43,6 @@ jobs:
           echo "No recent update. Skipping build."
           exit 0
         fi
-
-    - name: Clone OpenWrt Source
-      run: |
-        git clone --depth 1 --branch $REPO_BRANCH $REPO_URL
 
     - name: Install Dependencies
       run: |
@@ -69,9 +65,9 @@ jobs:
           file \
           wget
 
-    - name: Display contents of .config start
+    - name: Clone OpenWrt Source
       run: |
-        cat $GITHUB_WORKSPACE/$CONFIG_FILE
+        git clone --depth 1 --branch $REPO_BRANCH $REPO_URL
 
     - name: Update & install feeds
       run: |
@@ -79,26 +75,19 @@ jobs:
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
-    - name: Load .config
+    - name: Copy .config
       run: |
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+        [ -e $CONFIG_FILE ] && cp $CONFIG_FILE openwrt/.config
 
-    - name: Display contents of .config
+    - name: Validate .config and run defconfig
       run: |
         cd openwrt
         cat .config
-        # make defconfig
-        
-    - name: Update & install feeds
-      run: |
-        cd openwrt
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
-
-    - name: make defconfig
-      run: |
-        cd openwrt
         make defconfig
+        if ! grep -q CONFIG_TARGET_ .config; then
+          echo "No target found in .config after defconfig"
+          exit 1
+        fi
 
     - name: Download package sources
       run: |
@@ -120,27 +109,25 @@ jobs:
     - name: Build target images
       run: |
         cd openwrt
-        make -j $(($(nproc)+1)) V=s >> ../WAN_build.log 2>&1 || \
+        make -j$(($(nproc)+1)) V=s >> ../WAN_build.log 2>&1 || \
         make V=s >> ../WAN_build.log 2>&1
 
     - name: Upload build log
+      if: ${{ always() }}
       uses: actions/upload-artifact@v4
       with:
         name: openwrt-build-log
         path: WAN_build.log
 
     - name: Organize files
+      if: ${{ success() }}
       id: organize
       run: |
         cd openwrt/bin/targets/*/*
-
         rm -rf packages
-
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "NOW=$(date +%F-%H%M)" >> $GITHUB_ENV
-
         cp version.buildinfo $GITHUB_WORKSPACE/version.buildinfo
-
         for file in *; do
           if [[ "$file" == openwrt-mediatek-* ]]; then
             new_name="${file/openwrt-mediatek-/openwrt-mediatek-WAN-}"
@@ -150,22 +137,26 @@ jobs:
         done
 
     - name: Extract version information from version.buildinfo
+      if: ${{ success() }}
       run: |
         RAW_BUILDINFO=$(cat $PWD/version.buildinfo)
         echo "BUILDINFO=${RAW_BUILDINFO}-WAN" >> $GITHUB_ENV
 
-    - name: build RelTag
+    - name: Build RelTag
+      if: ${{ success() }}
       id: BuildRelTag
       run: |
         echo "RelTag=${{ env.NOW }}_WAN_${{ env.OpenWRTDevice }}_@(${{ env.BUILDINFO }})" >> $GITHUB_ENV
 
-    - name: Upload firmware to github
-      uses: actions/upload-artifact@main
+    - name: Upload firmware to GitHub
+      if: ${{ success() }}
+      uses: actions/upload-artifact@v4
       with:
         name: OpenWrt_firmware-${{ env.OpenWRTDevice }}-${{ env.NOW }}
         path: ${{ env.FIRMWARE }}
 
     - name: Create a release
+      if: ${{ success() }}
       uses: marvinpinto/action-automatic-releases@latest
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
