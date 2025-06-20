@@ -17,10 +17,6 @@ CONFIG_PACKAGE_kmod-tun=y
 CONFIG_PACKAGE_wpad-basic-mbedtls=n
 CONFIG_PACKAGE_wpad-mbedtls=y
 
-#wlantest
-#CONFIG_PACKAGE_dawn=y
-#CONFIG_PACKAGE_luci-app-dawn=y
-
 #servicesandtools
 CONFIG_PACKAGE_curl=y
 CONFIG_PACKAGE_iperf3=y
@@ -38,6 +34,7 @@ CONFIG_PACKAGE_luci-mod-admin-full=y
 # WireGuard
 CONFIG_PACKAGE_kmod-wireguard=y
 CONFIG_PACKAGE_wireguard-tools=y
+CONFIG_PACKAGE_qrencode=y
 CONFIG_PACKAGE_luci-proto-wireguard=y
 CONFIG_PACKAGE_luci-app-wireguard=y
 
