@@ -19,7 +19,8 @@ env:
 jobs:
   build:
     #runs-on: ubuntu-24.04-arm
-    runs-on: ubuntu-latest
+    #runs-on: ubuntu-latest
+    runs-on: ubuntu-22.02
 
     steps:
     - name: Checkout Repository
@@ -55,16 +56,20 @@ jobs:
           bison \
           g++ \
           gawk \
+          gcc-multilib \
+          g++-multilib \
           gettext \
           git \
           libncurses-dev \
           libssl-dev \
+          python3-distutils \
           python3-venv \
           rsync \
           unzip \
           zlib1g-dev \
           file \
-          wget
+          wget \
+          llvm
 
     - name: Clone OpenWrt Source
       run: |
