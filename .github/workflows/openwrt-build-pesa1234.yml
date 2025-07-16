@@ -61,6 +61,7 @@ jobs:
           libncurses-dev \
           libssl-dev \
           python3-venv \
+          python3-netifaces \
           rsync \
           unzip \
           zlib1g-dev \
