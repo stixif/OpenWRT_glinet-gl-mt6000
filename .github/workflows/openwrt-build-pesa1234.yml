@@ -61,12 +61,13 @@ jobs:
           libncurses-dev \
           libssl-dev \
           python3-venv \
-          python3-netifaces \
           rsync \
           unzip \
           zlib1g-dev \
           file \
-          wget
+          wget \
+          python3-pip
+        pip install netifaces
           
     - name: Clone OpenWrt Source
       run: |
