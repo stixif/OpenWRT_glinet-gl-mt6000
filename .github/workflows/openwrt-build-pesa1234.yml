@@ -18,8 +18,8 @@ env:
 
 jobs:
   build:
-    #runs-on: ubuntu-24.04-arm
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
+    #runs-on: ubuntu-latest
     #runs-on: ubuntu-22.04
 
     steps:
@@ -65,9 +65,8 @@ jobs:
           unzip \
           zlib1g-dev \
           file \
-          wget \
-          llvm
-
+          wget
+          
     - name: Clone OpenWrt Source
       run: |
         git clone --depth 1 --branch $REPO_BRANCH $REPO_URL
