@@ -232,17 +232,3 @@ CONFIG_ZLIB_OPTIMIZE_SPEED=y
 # CONFIG_PACKAGE_dnsmasq_full_dhcpv6 is not set
 CONFIG_PACKAGE_mt7601u-firmware=m
 CONFIG_PACKAGE_rtl8922ae-firmware=m
-
-#mesh-batman
-CONFIG_PACKAGE_luci-proto-batman-adv=y
-CONFIG_PACKAGE_kmod-batman-adv=y
-CONFIG_PACKAGE_batctl-full=y
-
-#qos
-CONFIG_PACKAGE_sqm-scripts=y
-CONFIG_PACKAGE_luci-app-sqm=y
-
-#Sonstiges
-CONFIG_PACKAGE_luci-ssl=y
-CONFIG_PACKAGE_luci-app-statistics=y
-CONFIG_PACKAGE_collectd-mod-thermal=y
