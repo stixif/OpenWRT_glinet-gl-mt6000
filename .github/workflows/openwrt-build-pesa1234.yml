@@ -54,7 +54,7 @@ jobs:
           clang \
           flex \
           bison \
-          g++ \ 
+          g++ \
           gawk \
           gcc-multilib \
           g++-multilib \
@@ -79,7 +79,6 @@ jobs:
           ccache \
           time
 
-          
     - name: Clone OpenWrt Source
       run: |
         git clone $REPO_URL
