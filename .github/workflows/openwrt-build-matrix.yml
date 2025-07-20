@@ -1,311 +1,142 @@
-# .github/workflows/openwrt-multi-build.yml
-#
-# Optimierte GitHub-Actions-Pipeline für **zwei (oder mehr) parallele OpenWrt-Builds**
-# basierend auf unterschiedlichen .config-Dateien – geeignet für OpenWrt Branch 24.10.
-#
-# Highlights:
-#   • Upstream-Check: Baut nur bei Änderungen (außer manueller Start / repository_dispatch).
-#   • Matrix-Build: Mehrere Geräte/Configs parallel.
-#   • Wiederverwendbare Schritte, weniger Duplikate.
-#   • Caching: dl/ & ccache (beschleunigt Wiederholungsbuilds).
-#   • Saubere Artefakt-Benennung pro Device.
-#   • Zentraler Release-Job, der alle Artefakte bündelt.
-#   • Einheitliche Zeitstempel (TZ via job.env + GNU date im Europa/Berlin Kontext).
-#
-# Voraussetzungen im Repo-Root:
-#   .config_flint2      -> Konfig für Flint2_gl-mt6000
-#   .config_other       -> Konfig für dein zweites Zielgerät (Beispielname ändern!)
-#
-# Wenn du weitere Geräte hinzufügen möchtest: Einfach einen weiteren Eintrag in der
-# "strategy.matrix.include"-Liste anlegen.
-#
-# -----------------------------------------------------------------------------
-# Tipp: Falls du große Builds erwartest, aktiviere Git LFS NICHT für .config-Dateien;
-#       die paar Bytes lohnen nicht – macht Workflows nur langsamer.
-# -----------------------------------------------------------------------------
-
 name: OpenWrt Release MAIN
 
 permissions:
   contents: write
-  packages: read
-  actions: read
 
 on:
   repository_dispatch:
   workflow_dispatch:
   schedule:
-    - cron: '0 5 * * 0'  # Sonntags 05:00 Uhr Europe/Berlin
+    - cron: '0 5 * * 0'
 
-# Globale Defaults (werden ggf. durch Matrix überschrieben)
 env:
   REPO_URL: https://github.com/openwrt/openwrt.git
-  #REPO_BRANCH: openwrt-24.10
-  REPO_BRANCH: main
+  REPO_BRANCH: openwrt-24.10
   TZ: Europe/Berlin
-  MAKE_JOBS: ${{ vars.OPENWRT_MAKE_JOBS || '' }} # optional override via repo vars
-
-# Stellt sicher, dass parallele Runs derselben Ref abgebrochen werden, damit wir
-# nicht mehrere teure Builds gleichzeitig fahren.
-concurrency:
-  group: openwrt-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # 1) Prüfe Upstream-Repo: Gibt letzte Commit-Zeit & SHA zurück. Entscheidet,
-  #    ob ein Build nötig ist (wenn Event == schedule & älter als 24h -> skip).
-  # ---------------------------------------------------------------------------
-  check-upstream:
-    #runs-on: ubuntu-24.04
-    runs-on: ubuntu-24.04-arm
+  prep:
+    runs-on: ubuntu-24.04
     outputs:
-      upstream_sha: ${{ steps.check.outputs.sha }}
-      upstream_date: ${{ steps.check.outputs.date }}
-      should_build: ${{ steps.decide.outputs.should_build }}
+      commit_sha: ${{ steps.set-sha.outputs.sha }}
     steps:
-      - name: Get upstream HEAD (shallow)
-        id: check
-        run: |
-          set -euo pipefail
-          git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" openwrt
-          cd openwrt
-          SHA=$(git rev-parse HEAD)
-          # Unix epoch seconds
-          CT=$(git show -s --format=%ct "$SHA")
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "date=$CT" >> "$GITHUB_OUTPUT"
-          echo "Upstream SHA: $SHA"; echo "Commit time: $CT"
+      - name: Checkout OpenWrt
+        uses: actions/checkout@v4
+        with:
+          repository: openwrt/openwrt
+          ref: ${{ env.REPO_BRANCH }}
 
-      - name: Decide whether to build
-        id: decide
-        run: |
-          set -euo pipefail
-          EVENT="${{ github.event_name }}"
-          CT=${{ steps.check.outputs.date }}
-          NOW=$(date +%s)
-          AGE=$(( NOW - CT ))
-          if [ "$EVENT" = "schedule" ] && [ $AGE -gt 86400 ]; then
-            echo "Upstream älter als 24h & Trigger war schedule -> Skip Build.";
-            echo "should_build=false" >> "$GITHUB_OUTPUT";
-          else
-            echo "Build wird ausgeführt (manueller Trigger oder neues Commit).";
-            echo "should_build=true" >> "$GITHUB_OUTPUT";
-          fi
+      - name: Set commit SHA output
+        id: set-sha
+        run: echo "::set-output name=sha::$(git rev-parse HEAD)"
 
-  # ---------------------------------------------------------------------------
-  # 2) Matrix-Build: Ein Durchlauf pro Gerät / Konfiguration
-  # ---------------------------------------------------------------------------
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential clang flex bison g++ gawk gettext git libncurses-dev libssl-dev python3-venv rsync unzip zlib1g-dev file wget ccache
+
+      - name: Update feeds
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Copy seed config
+        run: cp ${{ github.workspace }}/.config_flint2 .config
+
+      - name: Build tools and toolchain seed
+        run: |
+          make defconfig
+          make tools/install -j$(nproc) V=s
+          make toolchain/install -j$(nproc) V=s
+
+      - name: Package seed toolchain cache
+        run: tar czf toolchain-cache.tar.gz staging_dir tools
+
+      - name: Upload toolchain cache artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: openwrt-toolchain-cache-${{ steps.set-sha.outputs.sha }}
+          path: toolchain-cache.tar.gz
+
   build:
-    needs: check-upstream
-    if: needs.check-upstream.outputs.should_build == 'true'
-    #runs-on: ubuntu-24.04  # Ursprünglich: ubuntu-24.04-arm; ändere zurück falls nötig
-    runs-on: ubuntu-24.04-arm
+    needs: prep
+    runs-on: ubuntu-24.04
     strategy:
-      fail-fast: false
       matrix:
         include:
           - OpenWRTDevice: Flint2_gl-mt6000
             CONFIG_FILE: .config
-          - OpenWRTDevice: Flint2_gl-mt6000_WAN   # <--- anpassen
+          - OpenWRTDevice: Flint2_gl-mt6000
             CONFIG_FILE: .config_WAN
+
     env:
       OpenWRTDevice: ${{ matrix.OpenWRTDevice }}
       CONFIG_FILE: ${{ matrix.CONFIG_FILE }}
-      UPSTREAM_SHA: ${{ needs.check-upstream.outputs.upstream_sha }}
+
     steps:
-      - name: Checkout Repository (workflow + configs)
+      - name: Checkout OpenWrt
         uses: actions/checkout@v4
-
-      # Optional: Restore ccache
-      - name: Restore ccache cache
-        id: cache-ccache
-        uses: actions/cache@v4
         with:
-          path: ~/.ccache
-          key: ccache-${{ matrix.OpenWRTDevice }}-${{ needs.check-upstream.outputs.upstream_sha }}
-          restore-keys: |
-            ccache-${{ matrix.OpenWRTDevice }}-
-            ccache-
+          repository: openwrt/openwrt
+          ref: ${{ env.REPO_BRANCH }}
 
-      # Optional: Restore dl cache (downloaded sources)
-      - name: Restore OpenWrt dl cache
-        id: cache-dl
-        uses: actions/cache@v4
+      - name: Download toolchain cache artifact
+        uses: actions/download-artifact@v3
         with:
-          path: openwrt-dl-cache
-          key: dl-${{ needs.check-upstream.outputs.upstream_sha }}
-          restore-keys: |
-            dl-
+          name: openwrt-toolchain-cache-${{ needs.prep.outputs.commit_sha }}
+          path: .
 
-      - name: Install Build Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            clang \
-            flex \
-            bison \
-            g++ \
-            gawk \
-            gettext \
-            git \
-            libncurses-dev \
-            libssl-dev \
-            python3-venv \
-            rsync \
-            unzip \
-            zlib1g-dev \
-            file \
-            wget \
-            ccache
+      - name: Extract toolchain cache
+        run: tar xzf toolchain-cache.tar.gz
 
-      - name: Clone OpenWrt source
-        run: |
-          git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" openwrt
-          # Falls wir einen dl-Cache haben -> anhängen
-          if [ -d openwrt-dl-cache ]; then
-            mkdir -p openwrt/dl
-            rsync -a openwrt-dl-cache/ openwrt/dl/ || true
-          fi
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential clang flex bison g++ gawk gettext git libncurses-dev libssl-dev python3-venv rsync unzip zlib1g-dev file wget ccache
 
-      - name: Show selected config (repo copy)
-        run: |
-          echo "--- $CONFIG_FILE (repo-root) ---"
-          if [ -f "$CONFIG_FILE" ]; then cat "$CONFIG_FILE"; else echo "FEHLT!"; fi
+      - name: Cache downloads and staging_dir
+        uses: actions/cache@v3
+        with:
+          path: |
+            dl
+            staging_dir
+            .ccache
+          key: ${{ runner.os }}-openwrt-dl-staging-${{ matrix.CONFIG_FILE }}-${{ hashFiles(matrix.CONFIG_FILE) }}
 
-      - name: Update & install feeds
+      - name: Load config
+        run: cp ${{ github.workspace }}/$CONFIG_FILE openwrt/.config
+
+      - name: Build OpenWrt
         run: |
           cd openwrt
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
-
-      - name: Copy config into build tree
-        run: |
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "Konfig $CONFIG_FILE fehlt im Repo! Abbruch." >&2
-            exit 1
-          fi
-          cp "$CONFIG_FILE" openwrt/.config
-
-      - name: Prepare build (.config -> defconfig)
-        run: |
-          cd openwrt
+          export CCACHE_DIR=$GITHUB_WORKSPACE/.ccache
+          ccache -M 2G
           make defconfig
+          make download V=s
+          make -j$(($(nproc)+1)) V=s
 
-      - name: Download package sources
+      - name: Organize firmware files
         run: |
-          cd openwrt
-          make download V=s || true
-
-      - name: Build tools
-        run: |
-          cd openwrt
-          make tools/install -j$(( $(nproc) + 1 )) V=s || make tools/install V=s
-
-      - name: Build toolchain
-        run: |
-          cd openwrt
-          make toolchain/install -j$(( $(nproc) + 1 )) V=s || make toolchain/install V=s
-
-      - name: Build target images
-        # MAKE_JOBS optional override; fallback nproc
-        run: |
-          cd openwrt
-          JOBS="${MAKE_JOBS}"; if [ -z "$JOBS" ]; then JOBS=$(( $(nproc) + 1 )); fi
-          make -j"$JOBS" V=s || make V=s
-
-      - name: Save dl cache back (best effort)
-        if: always()
-        run: |
-          mkdir -p openwrt-dl-cache
-          rsync -a --delete openwrt/dl/ openwrt-dl-cache/ || true
-
-      - name: Locate firmware directory & metadata
-        id: locate
-        run: |
-          set -euo pipefail
-          # Finde genau einen Zielpfad unter bin/targets
-          FW_PATH=$(find openwrt/bin/targets -maxdepth 3 -type d -not -path '*/packages' -mindepth 2 -printf '%p\n' | head -n1)
-          if [ -z "$FW_PATH" ]; then echo "Kein Firmware-Verzeichnis gefunden!" >&2; exit 1; fi
-          # Entferne packages um Artefaktgröße zu reduzieren
-          rm -rf "$FW_PATH/packages" || true
-          # Versionsinfo extrahieren (falls vorhanden)
-          BUILDINFO="unknown"
-          if [ -f "$FW_PATH/version.buildinfo" ]; then BUILDINFO=$(cat "$FW_PATH/version.buildinfo" | tr -d '\n'); fi
-          # Einheitlicher Zeitstempel Europe/Berlin
-          NOW=$(TZ=$TZ date +'%Y%m%d-%H%M')
-          echo "fw=$FW_PATH" >> "$GITHUB_OUTPUT"
-          echo "buildinfo=$BUILDINFO" >> "$GITHUB_OUTPUT"
-          echo "now=$NOW" >> "$GITHUB_OUTPUT"
-          echo "Firmware path: $FW_PATH"; echo "Buildinfo: $BUILDINFO"; echo "Timestamp: $NOW"
+          cd openwrt/bin/targets/*/*
+          rm -rf packages
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          echo "NOW=$(date +%F-%H%M)" >> $GITHUB_ENV
 
       - name: Upload firmware artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
-          name: OpenWrt-${{ matrix.OpenWRTDevice }}-${{ steps.locate.outputs.now }}
-          path: ${{ steps.locate.outputs.fw }}
-          if-no-files-found: error
+          name: firmware-${{ matrix.CONFIG_FILE }}-${{ env.NOW }}
+          path: ${{ env.FIRMWARE }}
 
-      - name: Write build summary
-        run: |
-          echo "### Build abgeschlossen: $OpenWRTDevice" >> $GITHUB_STEP_SUMMARY
-          echo "* Commit: $UPSTREAM_SHA" >> $GITHUB_STEP_SUMMARY
-          echo "* Buildinfo: ${{ steps.locate.outputs.buildinfo }}" >> $GITHUB_STEP_SUMMARY
-          echo "* Firmware-Pfad: ${{ steps.locate.outputs.fw }}" >> $GITHUB_STEP_SUMMARY
-
-      - name: Persist metadata for release job
-        id: meta
-        run: |
-          echo "device=$OpenWRTDevice" >> "$GITHUB_OUTPUT"
-          echo "fw_path=${{ steps.locate.outputs.fw }}" >> "$GITHUB_OUTPUT"
-          echo "buildinfo=${{ steps.locate.outputs.buildinfo }}" >> "$GITHUB_OUTPUT"
-          echo "ts=${{ steps.locate.outputs.now }}" >> "$GITHUB_OUTPUT"
-
-  # ---------------------------------------------------------------------------
-  # 3) Release-Job: Läuft NACH allen Builds. Lädt alle Artefakte herunter und
-  #    erstellt EIN Release mit allen Device-Images.
-  # ---------------------------------------------------------------------------
   release:
-    needs: [check-upstream, build]
-    if: needs.check-upstream.outputs.should_build == 'true'
-    runs-on: ubuntu-24.04
+    needs: build
+    runs-on: ubuntu-latest
     steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+      - name: Download all firmware artifacts
+        uses: actions/download-artifact@v3
         with:
-          path: collected_artifacts
+          path: firmware-artifacts
 
-      - name: Determine Release Metadata
-        id: meta
-        run: |
-          set -euo pipefail
-          # Zeitstempel für Release (Berlin)
-          NOW=$(TZ=$TZ date +'%Y%m%d-%H%M')
-          echo "now=$NOW" >> "$GITHUB_OUTPUT"
-          # Upstream SHA aus needs
-          echo "sha=${{ needs.check-upstream.outputs.upstream_sha }}" >> "$GITHUB_OUTPUT"
-          # Kurzen Tag bauen: z.B. owr-24.10-<date>-<shortsha>
-          SHORT=${{ needs.check-upstream.outputs.upstream_sha }}
-          SHORT=${SHORT:0:10}
-          echo "tag=owrt-24.10-${NOW}-${SHORT}" >> "$GITHUB_OUTPUT"
-
-      - name: Create Release (automatic)
+      - name: Create Release
         uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           prerelease: false
-          title: "OpenWrt 24.10 ${ {steps.meta.outputs.now} } (${ {steps.meta.outputs.sha} })"
-          automatic_release_tag: ${{ steps.meta.outputs.tag }}
-          files: |
-            collected_artifacts/**
-
-      - name: Release summary
-        run: |
-          echo "## Release erstellt" >> $GITHUB_STEP_SUMMARY
-          echo "Tag: ${{ steps.meta.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
-          echo "Upstream: ${{ steps.meta.outputs.sha }}" >> $GITHUB_STEP_SUMMARY
-
-# -----------------------------------------------------------------------------
-# ENDE WORKFLOW
-# -----------------------------------------------------------------------------
+          title: OpenWrt Build ${{ github.run_number }} ${{ github.ref_name }}
+          files: firmware-artifacts/**/*
