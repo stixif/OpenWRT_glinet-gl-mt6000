@@ -24,7 +24,7 @@
 #       die paar Bytes lohnen nicht – macht Workflows nur langsamer.
 # -----------------------------------------------------------------------------
 
-name: OpenWrt Release STABLE openwrt-24.10
+name: OpenWrt Release MAIN
 
 permissions:
   contents: write
@@ -106,7 +106,7 @@ jobs:
       matrix:
         include:
           - OpenWRTDevice: Flint2_gl-mt6000
-            CONFIG_FILE: .config_flint2
+            CONFIG_FILE: .config
           - OpenWRTDevice: Flint2_gl-mt6000_WAN   # <--- anpassen
             CONFIG_FILE: .config_WAN
     env:
