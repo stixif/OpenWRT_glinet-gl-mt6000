@@ -11,7 +11,7 @@ on:
 
 env:
   REPO_URL: https://github.com/openwrt/openwrt.git
-  REPO_BRANCH: openwrt-24.10
+  REPO_BRANCH: main
   TZ: Europe/Berlin
 
 jobs:
@@ -39,7 +39,7 @@ jobs:
           ./scripts/feeds install -a
 
       - name: Copy seed config
-        run: cp ${{ github.workspace }}/.config_flint2 .config
+        run: cp ${{ github.workspace }}/.config_WAN .config
 
       - name: Build tools and toolchain seed
         run: |
@@ -51,7 +51,7 @@ jobs:
         run: tar czf toolchain-cache.tar.gz staging_dir tools
 
       - name: Upload toolchain cache artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: openwrt-toolchain-cache-${{ steps.set-sha.outputs.sha }}
           path: toolchain-cache.tar.gz
@@ -79,7 +79,7 @@ jobs:
           ref: ${{ env.REPO_BRANCH }}
 
       - name: Download toolchain cache artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: openwrt-toolchain-cache-${{ needs.prep.outputs.commit_sha }}
           path: .
@@ -91,7 +91,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y build-essential clang flex bison g++ gawk gettext git libncurses-dev libssl-dev python3-venv rsync unzip zlib1g-dev file wget ccache
 
       - name: Cache downloads and staging_dir
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             dl
@@ -119,7 +119,7 @@ jobs:
           echo "NOW=$(date +%F-%H%M)" >> $GITHUB_ENV
 
       - name: Upload firmware artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: firmware-${{ matrix.CONFIG_FILE }}-${{ env.NOW }}
           path: ${{ env.FIRMWARE }}
@@ -129,7 +129,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all firmware artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: firmware-artifacts
 
@@ -137,6 +137,6 @@ jobs:
         uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          prerelease: false
+          prerelease: true
           title: OpenWrt Build ${{ github.run_number }} ${{ github.ref_name }}
           files: firmware-artifacts/**/*
