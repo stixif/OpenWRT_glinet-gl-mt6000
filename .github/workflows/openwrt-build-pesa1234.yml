@@ -1,188 +1,56 @@
-name: OpenWrt Release PESA1234 openwrt
-
-permissions:
-  contents: write
+name: Build OpenWRT (PESA1234 Fork)
 
 on:
-  repository_dispatch:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 5 * * 0'
-
-env:
-  REPO_URL: https://github.com/pesa1234/openwrt.git
-  REPO_BRANCH: next-r4.6.6.rss.mtk
-  OpenWRTDevice: Flint2_gl-mt6000
-  CONFIG_FILE: .config_PESA-TEST
-  TZ: Europe/Berlin
+  workflow_dispatch:        # Manuelles Auslösen
+  push:
+    branches:
+      - main                # Automatisch ausführen bei Push auf main
 
 jobs:
   build:
-    #runs-on: ubuntu-24.04-arm
-    runs-on: ubuntu-latest
-    #runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Check last commit date
-      id: check_commit_date
-      run: |
-        git clone --depth 1 --branch $REPO_BRANCH $REPO_URL openwrt-check
-        cd openwrt-check
-        LAST_COMMIT_DATE=$(git log -1 --format=%ct)
-        echo "LAST_COMMIT_DATE=$LAST_COMMIT_DATE" >> $GITHUB_ENV
-        cd ..
-        rm -rf openwrt-check
+      - name: Install build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential clang flex bison g++ gawk \
+          gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
+          python3-distutils rsync swig unzip zlib1g-dev file wget llvm
 
-    - name: Skip if no update in last 24 hours
-      run: |
-        CURRENT_TIME=$(date +%s)
-        ELAPSED=$((CURRENT_TIME - $LAST_COMMIT_DATE))
-        echo "Elapsed time since last commit: $ELAPSED seconds"
-        if [ "$ELAPSED" -gt 86400 ]; then
-          echo "No recent update. Skipping build."
-          exit 0
-        fi
+      - name: Clone PESA1234 OpenWRT
+        run: |
+          git clone https://github.com/pesa1234/openwrt.git openwrt
+          cd openwrt
+          git checkout next-r4.6.7.rss.mtk
 
-    - name: Install Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          clang \
-          flex \
-          bison \
-          g++ \
-          gawk \
-          gcc-multilib \
-          g++-multilib \
-          gettext \
-          git \
-          libncurses-dev \
-          libssl-dev \
-          pkg-config \
-          libelf-dev \
-          python3 \
-          python3-setuptools \
-          python3-pip \
-          rsync \
-          swig \
-          unzip \
-          zlib1g-dev \
-          file \
-          wget \
-          llvm \
-          curl \
-          subversion \
-          ccache \
-          time
+      - name: Update and install feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
 
-    - name: Clone OpenWrt Source
-      run: |
-        git clone $REPO_URL
-        cd openwrt
-        git pull
-        git branch -a
-        git checkout $REPO_BRANCH
+      - name: Import custom config
+        run: |
+          cd openwrt
+          wget https://raw.githubusercontent.com/pesa1234/MT6000_cust_build/refs/heads/main/2025-07-17_r30972-34db0d03c8_next-r4.6.6.rss.mtk/targets/mediatek/filogic/config.buildinfo -O .config
 
-    - name: Update & install feeds
-      run: |
-        cd openwrt
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
+      - name: Download packages
+        run: |
+          cd openwrt
+          make defconfig
+          make download -j$(nproc)
 
-    - name: Copy .config
-      run: |
-        [ -e $CONFIG_FILE ] && cp $CONFIG_FILE openwrt/.config
+      - name: Build firmware
+        run: |
+          cd openwrt
+          make -j$(nproc)
 
-    - name: Validate .config and run defconfig
-      run: |
-        cd openwrt
-        cat .config
-        make defconfig
-        if ! grep -q CONFIG_TARGET_ .config; then
-          echo "No target found in .config after defconfig"
-          exit 1
-        fi
-
-    - name: Download package sources
-      run: |
-        cd openwrt
-        make download V=s > ../PESA_build.log 2>&1
-
-    - name: Build tools
-      run: |
-        cd openwrt
-        make tools/install -j$(($(nproc)+1)) V=s >> ../PESA_build.log 2>&1 || \
-        make tools/install V=s >> ../PESA_build.log 2>&1
-
-    - name: Build toolchain
-      run: |
-        cd openwrt
-        make toolchain/install -j$(($(nproc)+1)) V=s >> ../PESA_build.log 2>&1 || \
-        make toolchain/install V=s >> ../PESA_build.log 2>&1
-
-    - name: Build target images
-      run: |
-        cd openwrt
-        make -j$(($(nproc)+1)) V=s >> ../PESA_build.log 2>&1 || \
-        make V=s >> ../PESA_build.log 2>&1
-
-    - name: Upload build log
-      if: ${{ always() }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: openwrt-build-log
-        path: PESA_build.log
-
-    - name: Organize files
-      if: ${{ success() }}
-      id: organize
-      run: |
-        cd openwrt/bin/targets/*/*
-        rm -rf packages
-        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-        echo "NOW=$(date +%F-%H%M)" >> $GITHUB_ENV
-        cp version.buildinfo $GITHUB_WORKSPACE/version.buildinfo
-        for file in *; do
-          if [[ "$file" == openwrt-mediatek-* ]]; then
-            new_name="${file/openwrt-mediatek-/openwrt-mediatek-PESA-}"
-            echo "Renaming $file to $new_name"
-            mv "$file" "$new_name"
-          fi
-        done
-
-    - name: Extract version information from version.buildinfo
-      if: ${{ success() }}
-      run: |
-        RAW_BUILDINFO=$(cat $PWD/version.buildinfo)
-        echo "BUILDINFO=${RAW_BUILDINFO}-PESA" >> $GITHUB_ENV
-
-    - name: Build RelTag
-      if: ${{ success() }}
-      id: BuildRelTag
-      run: |
-        echo "RelTag=${{ env.NOW }}_PESA_${{ env.OpenWRTDevice }}_@(${{ env.BUILDINFO }})" >> $GITHUB_ENV
-
-    - name: Upload firmware to GitHub
-      if: ${{ success() }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: OpenWrt_firmware-${{ env.OpenWRTDevice }}-${{ env.NOW }}
-        path: ${{ env.FIRMWARE }}
-
-    - name: Create a release
-      if: ${{ success() }}
-      uses: marvinpinto/action-automatic-releases@latest
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        prerelease: false
-        title: "${{ env.RelTag }}"
-        automatic_release_tag: "${{ env.BUILDINFO }}"
-        files: |
-          ${{ env.FIRMWARE }}/*sysupgrade.bin
-          ${{ env.FIRMWARE }}/*.buildinfo
-          ${{ env.FIRMWARE }}/*.manifest
-          ${{ env.FIRMWARE }}/sha256sums
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-firmware
+          path: openwrt/bin/targets/
