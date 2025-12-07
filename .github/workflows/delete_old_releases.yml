@@ -10,6 +10,11 @@ on:
 jobs:
   maintenance:
     runs-on: ubuntu-latest
+    permissions:
+      # WICHTIG: Erlaubt das Schreiben/Löschen von Releases, Tags und Content
+      contents: write
+      # Für das Löschen von Workflow-Runs ist diese Berechtigung oft ausreichend
+      actions: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
