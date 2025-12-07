@@ -18,7 +18,7 @@ jobs:
       - name: Delete Old Releases
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
-          keep_latest: 10
+          keep_latest: 8
           delete_expired_data: 20
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -34,14 +34,14 @@ jobs:
 
       # 🧹 OPTIONAL: Nur fehlgeschlagene oder abgebrochene Runs nach 1 Tag entfernen
       # Kann bleiben oder entfernt werden – hat wenig Mehrwert, wenn obiger Schritt alles macht
-      - name: Delete cancelled, failed, or skipped workflow runs older than 1 day
-        uses: Mattraks/delete-workflow-runs@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          delete_run_by_conclusion_pattern: cancelled, failure, skipped
-          repository: ${{ github.repository }}
-          retain_days: 1
-          keep_minimum_runs: 0
+      # - name: Delete cancelled, failed, or skipped workflow runs older than 1 day
+      #   uses: Mattraks/delete-workflow-runs@v2
+      #   with:
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     delete_run_by_conclusion_pattern: cancelled, failure, skipped
+      #     repository: ${{ github.repository }}
+      #     retain_days: 1
+      #     keep_minimum_runs: 0
 
       # 🏷️ Tags ohne zugehörige Releases löschen
       - name: Delete unused Tags
