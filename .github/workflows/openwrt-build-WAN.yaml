@@ -45,6 +45,19 @@ jobs:
           exit 0
         fi
 
+    - name: Free up disk space on Runner 🚀
+      run: |
+        echo "Starting disk space cleanup..."
+        # Entfernt einige der größten vorinstallierten Pakete auf ubuntu-latest
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        # Löscht den APT-Cache
+        sudo apt-get clean
+        # Überprüfe den freien Speicherplatz
+        echo "Disk usage after cleanup:"
+        df -h
+
     - name: Install Dependencies
       run: |
         sudo apt-get update
@@ -69,6 +82,16 @@ jobs:
     - name: Clone OpenWrt Source
       run: |
         git clone --depth 1 --branch $REPO_BRANCH $REPO_URL
+
+    - name: Cache OpenWrt Downloads (dl directory) 📦
+      uses: actions/cache@v4
+      with:
+        # Pfad zum Ordner, in dem OpenWrt die Quellen herunterlädt
+        path: openwrt/dl
+        # Der Cache-Key basiert auf dem OS und der .config-Datei, die sich selten ändert
+        key: ${{ runner.os }}-openwrt-${{ hashFiles('openwrt/.config') }}
+        restore-keys: |
+          ${{ runner.os }}-openwrt-
 
     - name: Update & install feeds
       run: |
