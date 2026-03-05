@@ -1,4 +1,4 @@
-name: OpenWrt Release STABLE WAN openwrt-24.10
+name: OpenWrt Release STABLE WAN openwrt-25.12
 
 permissions:
   contents: write
@@ -11,7 +11,7 @@ on:
 
 env:
   REPO_URL: https://github.com/openwrt/openwrt.git
-  REPO_BRANCH: openwrt-24.10
+  REPO_BRANCH: openwrt-25.12
   OpenWRTDevice: Flint2_gl-mt6000
   CONFIG_FILE: .config_WAN
   TZ: Europe/Berlin
